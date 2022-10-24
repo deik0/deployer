@@ -38,7 +38,7 @@
     loop: 
     - "{{ workerNodes['resources'][0]['metadata'] }} "
     - "{{ workerNodes['resources'][1]['metadata'] }} "
-    - "{{ workerNodes['resources'][2]['metadata']  }} "
+    - "{{ workerNodes['resources'][2]['metadata'] }} "
 
   - name: create operator configs for LSO
     kubernetes.core.k8s:
@@ -46,10 +46,17 @@
       state: present
       namespace: openshift-local-storage
 ##
-# ^^^ the above task is very fast and can crash the rest of the playbook ^^^
 # vvv Add below a check that wait on the local-storage-operator pod to be running vvv
+# The below ansible thingy can make the playbook wait based on pod/deployment conditions
+# Could be the thing that makes the trick
 ##
-
+  - name: Waiting for the operator pod to start up
+    kubernetes.core.k8s_info:
+      kind: Pod
+      wait: yes
+      namespace: openshift-local-storage
+      wait_sleep: 10
+      wait_timeout: 360
   # There are several methods to feed volume creation to the operator
   # Decide which ones to use for each use case.(Selector or something)
   - name: create operator configs for LSO
@@ -57,6 +64,12 @@
       state: present
       namespace: openshift-local-storage
       src: ./localVolumeSet.yml
-# -> It takes around two minutes once the pods are deployed to provision the new PVs
-# -> Add a sleeper
-# -> Add a check at the end to ensure that it deployed successfully
+
+  - name: Waiting for the diskmaker pods to get up and running to finish successfully
+    kubernetes.core.k8s_info:
+      kind: Pod
+      wait: yes
+      namespace: openshift-local-storage
+      wait_sleep: 10
+      wait_timeout: 360
+

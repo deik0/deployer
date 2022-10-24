@@ -1,0 +1,28 @@
+---
+- name: LSO deployer
+  hosts: localhost
+  connection: local
+  tasks:
+# Add pre-deploy checks to ensure the installation will be a success  
+# vvvv Below ansible can be a playbook block vvvv
+  - name: create project for LSO
+    kubernetes.core.k8s:
+      name: openshift-local-storage
+      state: present
+      api_version: v1
+      kind: Namespace
+      kubeconfig: "/home/miguel/.kube/config"
+  - name: create operator configs for LSO
+    kubernetes.core.k8s:
+      src: /home/miguel/yamls/storage/lso/deploy-operator/ansible/operator.yaml
+      state: present
+      namespace: openshift-local-storage
+  # There are several methods to feed volume creation to the operator
+  # Decide which ones to use for each use case.(Selector or something)
+  - name: create localvolume for LSO
+    kubernetes.core.k8s:
+      state: present
+      definition: "{{ lookup('file', 'localvolume.yaml.j2') | from_yaml }}"
+      namespace: openshift-local-storage
+# -> Add a sleeper
+# -> Add a check at the end to ensure that it deployed successfully

@@ -1,0 +1,15 @@
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: oadp-bucket
+  namespace: openshift-adp
+  labels:
+    app: noobaa
+    bucket-provisioner: openshift-storage.noobaa.io-obc
+    noobaa-domain: openshift-storage.noobaa.io
+spec:
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class
+  bucketName: oadp-bucket-92251976-ae61-41c6-b54b-83cc7072014e
+  generateBucketName: oadp-bucket
+  storageClassName: openshift-storage.noobaa.io

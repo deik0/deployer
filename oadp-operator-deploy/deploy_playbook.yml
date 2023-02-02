@@ -1,0 +1,61 @@
+---
+- name: OADP Deployer
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+# Add pre-deploy checks to ensure the installation will be a success 
+  - name: Create project for OADP
+    kubernetes.core.k8s:
+      name: openshift-adp
+      state: present
+      api_version: v1
+      kind: Namespace
+  - name: Installing operator
+    kubernetes.core.k8s:
+      src: ./operator.yaml
+      state: present
+      namespace: openshift-adp
+# It takes some time for the operator to deploy,hence the CRD won't be available to install the next steps
+# obc creation(?) ->
+# get obc from openshift-adp         
+  - name: fetch obc in openshift-adp
+    set_fact:
+      obcOADP: "{{ query('kubernetes.core.k8s', api_version='objectbucket.io/v1alpha1' ,kind='ObjectBucketClaim', namespace='openshift-adp') }}"
+  - name: fetch bucket secret
+    set_fact:
+      bucketSecret: "{{ query('kubernetes.core.k8s', api_version='v1' ,kind='secrets', namespace='openshift-adp', resource_name='oadp-bucket') }}"
+# debug of vars for testing everything works
+  - name: debug bucket data
+    debug:
+      msg: "{{ obcOADP[0].spec.bucketName }}" 
+
+# Create secret for bucket
+  - name: template to yaml for bucket secret
+    ansible.builtin.template:
+      src: secret-template.j2
+      dest: /tmp/cloud-credentials.yaml
+  - name: Create cloud-credentials secret based on previous data
+    ansible.builtin.shell: 
+      cmd: 'oc create secret generic cloud-credentials -n openshift-adp --from-file cloud=/tmp/cloud-credentials.yaml'
+    ignore_errors: true
+     
+
+# DPA creation
+  - name: template to yaml of DPA for OADP init
+    ansible.builtin.template:
+      src: dpa.j2
+      dest: /tmp/dpa.yaml
+
+# fetch from oadp bucket configmap the values for : BUCKET_HOST: s3.openshift-storage.svc
+
+  - name: Create DPA based on bucket created in cluster
+    kubernetes.core.k8s:
+      src: /tmp/dpa.yaml
+      state: present
+      namespace: openshift-adp
+  
+# IMPORTANT!
+# LABEL THE VOLUMESNAPSHOTCLASS WITH
+#   labels:
+#    velero.io/csi-volumesnapshot-class: "true"

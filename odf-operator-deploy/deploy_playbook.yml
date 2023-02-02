@@ -1,0 +1,57 @@
+---
+- name: ODF Deployer
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+# Add pre-deploy checks to ensure the installation will be a success  
+  - name: create project for ODF
+    kubernetes.core.k8s:
+      name: openshift-storage
+      state: present
+      api_version: v1
+      kind: Namespace
+  - name: Installing operator
+    kubernetes.core.k8s:
+      src: ./operatorgroup.yml
+      state: present
+      namespace: openshift-storage
+# vvvvv the subcription task yaml need to be in the correct "channel: "stable-4.9"" variable, otherwise the cluster will fail to deploy
+# Possible reproducer/breakfix^^^ 
+  - name: Deploying subscription channels
+    kubernetes.core.k8s:
+      src: ./subscription.yml
+      state: present
+      namespace: openshift-storage
+# We need to patch the console: oc patch console.operator cluster -n openshift-storage --type json -p '[{"op": "add", "path": "/spec/plugins", "value": ["odf-console"]}]'
+  - name: Waiting for the operator pod to start up # Requires enhancement in check
+    kubernetes.core.k8s_info:
+      kind: Pod
+      wait: yes
+      namespace: openshift-storage
+      wait_sleep: 10
+      wait_timeout: 600
+
+  - name: Create OCS-Rook cluster
+    kubernetes.core.k8s:
+      src: ./odf-cluster.yml
+      state: present
+      namespace: openshift-storage
+
+# Requires enhancement in check
+# NOT WORKING
+# DOESN'T WAIT FOR ODF DEVICESETS TO BE UP AND RUNNING
+
+  - name: Waiting for the operator pod to start up 
+    kubernetes.core.k8s_info:
+      kind: Pod
+      wait: yes
+      namespace: openshift-storage
+      wait_sleep: 10
+      wait_timeout: 600
+
+# Are the storageclasses for ODF deployed?
+#ocs-storagecluster-ceph-rbd   openshift-storage.rbd.csi.ceph.com      Delete          Immediate              true                   35s
+#ocs-storagecluster-ceph-rgw   openshift-storage.ceph.rook.io/bucket   Delete          Immediate              false                  11m
+#ocs-storagecluster-cephfs     openshift-storage.cephfs.csi.ceph.com   Delete          Immediate              true                   1s
+# ^^^^ Add a check for these, otherwise this is not working....^^^

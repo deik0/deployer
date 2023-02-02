@@ -1,0 +1,43 @@
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: oadp-bucket
+  namespace: openshift-adp
+  labels:
+    app: noobaa
+    bucket-provisioner: openshift-storage.noobaa.io-obc
+    noobaa-domain: openshift-storage.noobaa.io
+spec:
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class
+  bucketName: oadp-bucket-92251976-ae61-41c6-b54b-83cc7072014e
+  generateBucketName: oadp-bucket
+  storageClassName: openshift-storage.noobaa.io
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  annotations:
+    olm.providedAPIs: ""
+  namespace: openshift-adp
+  name: openshift-adp
+spec:
+  targetNamespaces:
+  - openshift-adp
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  labels:
+    operators.coreos.com/redhat-oadp-operator.openshift-adp: ""
+  name: redhat-oadp-operator
+  namespace: openshift-adp
+spec:
+  channel: stable-1.1
+  installPlanApproval: Automatic
+  name: redhat-oadp-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: oadp-operator.v1.1.0
+---
